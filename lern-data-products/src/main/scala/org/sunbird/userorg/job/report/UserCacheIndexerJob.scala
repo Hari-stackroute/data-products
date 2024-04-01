@@ -88,7 +88,7 @@ object UserCacheIndexerJob extends IJob with Serializable {
       var userDF = filterUserData(spark.read.format("org.apache.spark.sql.cassandra").option("table", "user").option("keyspace", sunbirdKeyspace).load()
         .select(
           col("firstname"), col("lastname"), col("email"), col("phone"),
-          col("rootorgid"), col("framework"), col("userid")
+          col("rootorgid"), col("framework"), col("userid"), col("status")
         )
         .filter(col("userid").isNotNull))
       userDF = userDF.withColumn("framework_id", element_at(col("framework.id"), 1))

@@ -26,7 +26,7 @@ object UserInfoExhaustJob extends BaseCollectionExhaustJob with Serializable {
   private val encryptedFields = Array("email", "phone", "username");
 
   override def getUserCacheColumns(): Seq[String] = {
-    Seq("userid", "username", "state", "district", "rootorgid", "orgname", "email", "phone", "block", "cluster", "usertype", "usersubtype", "schooludisecode", "schoolname")
+    Seq("userid", "username", "state", "district", "rootorgid", "orgname", "email", "phone", "block", "cluster", "usertype", "usersubtype", "schooludisecode", "schoolname", "status")
   }
 
   override def validateRequest(request: JobRequest): Boolean = {
