@@ -1,5 +1,4 @@
 ## Data products deployment ##
-
 - name: Copy Core Data Products
   copy: src={{ analytics_batch_module_artifact }} dest={{ analytics.home }}/models-{{ model_version }}
   tags:
@@ -63,7 +62,7 @@
     - dataproducts-spark-cluster
     - lern-dataproducts-spark-cluster
     - framework-spark-cluster    
-    
+
 - name: Copy log4j2 xml file
   template: src=log4j2.xml.j2 dest={{ analytics.home }}/models-{{ model_version }}/log4j2.xml mode=755 owner={{ analytics_user }} group={{ analytics_group }}
   tags: [ dataproducts, framework, lern-dataproducts ]
