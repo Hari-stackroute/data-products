@@ -61,6 +61,10 @@ trait BaseCollectionExhaustJob extends BaseReportsJob with IJob with OnDemandExh
     JobLogger.start(s"${jobName()} started executing - ver3", Option(Map("config" -> config, "model" -> jobName)))
 
     implicit val jobConfig = JSONUtils.deserialize[JobConfig](config)
+    val modelParams = jobConfig.modelParams.getOrElse(Map[String, Option[AnyRef]]());
+    val readConsistencyLevel = modelParams.getOrElse("cassandraReadConsistency", "LOCAL_QUORUM").asInstanceOf[String];
+    val writeConsistencyLevel = modelParams.getOrElse("cassandraWriteConsistency", "LOCAL_QUORUM").asInstanceOf[String]
+    JobLogger.log(s"readConsistencyLevel: " +readConsistencyLevel+ "writeConsistencyLevel: "+writeConsistencyLevel, None, INFO)
     implicit val spark: SparkSession = openSparkSession(jobConfig)
     implicit val frameworkContext: FrameworkContext = getReportingFrameworkContext()
     init()
@@ -102,9 +106,8 @@ trait BaseCollectionExhaustJob extends BaseReportsJob with IJob with OnDemandExh
   def execute()(implicit spark: SparkSession, fc: FrameworkContext, config: JobConfig): Metrics = {
     val modelParams = config.modelParams.getOrElse(Map[String, Option[AnyRef]]());
     val mode = modelParams.getOrElse("mode", "OnDemand").asInstanceOf[String];
-
     val custodianOrgId = getCustodianOrgId();
-
+    JobLogger.log(s"custodianOrgId: " +custodianOrgId, None, INFO)(new String())
     val res = CommonUtil.time({
       val userDF = getUserCacheDF(getUserCacheColumns(), persist = true)
       (userDF.count(), userDF)
@@ -139,7 +142,6 @@ trait BaseCollectionExhaustJob extends BaseReportsJob with IJob with OnDemandExh
     val storageConfig = getStorageConfig(config, AppConf.getConfig("collection.exhaust.store.prefix"))
     val totalRequests = new AtomicInteger(requests.length)
     JobLogger.log("Total Requests are ", Some(Map("jobId" -> jobId(), "totalRequests" -> requests.length)), INFO)
-
     val dupRequests = getDuplicateRequests(requests)
     val dupRequestsList = dupRequests.values.flatten.map(f => f.request_id).toList
     val filteredRequests = requests.filter(f => ! dupRequestsList.contains(f.request_id))
