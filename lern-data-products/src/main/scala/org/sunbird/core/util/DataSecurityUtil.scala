@@ -204,7 +204,7 @@ object DataSecurityUtil {
       val path = Paths.get(url)
       val filePrefix = storageConfig.store.toLowerCase() match {
         // $COVERAGE-OFF$ Disabling scoverage
-        case "s3" =>
+        case "s3" | "oci" =>
           CommonUtil.getS3File(storageConfig.container, "")
         case "azure" =>
           CommonUtil.getAzureFile(storageConfig.container, "", storageConfig.accountKey.getOrElse("azure_storage_key"))
@@ -262,7 +262,7 @@ object DataSecurityUtil {
       val storageService = fc.getStorageService(storageConfig.store, storageConfig.accountKey.getOrElse(""), storageConfig.secretKey.getOrElse(""));
       val filePrefix = storageConfig.store.toLowerCase() match {
         // $COVERAGE-OFF$ Disabling scoverage
-        case "s3" =>
+        case "s3" | "oci" =>
           CommonUtil.getS3File(storageConfig.container, "")
         case "azure" =>
           CommonUtil.getAzureFile(storageConfig.container, "", storageConfig.accountKey.getOrElse("azure_storage_key"))

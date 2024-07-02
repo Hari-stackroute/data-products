@@ -58,8 +58,15 @@ trait BaseReportsJob {
 
     val modelParams = config.modelParams.getOrElse(Map[String, Option[AnyRef]]());
     val container = modelParams.getOrElse("storageContainer", "reports").asInstanceOf[String]
-    val storageKey = modelParams.getOrElse("storageKeyConfig", "reports_storage_key").asInstanceOf[String];
-    val storageSecret = modelParams.getOrElse("storageSecretConfig", "reports_storage_secret").asInstanceOf[String];
+    val storageKeyConfig = modelParams.getOrElse("storageKeyConfig", "").asInstanceOf[String];
+    val storageSecretConfig = modelParams.getOrElse("storageSecretConfig", "").asInstanceOf[String];
+
+    val storageKey = if (storageKeyConfig.nonEmpty) {
+      AppConf.getConfig(storageKeyConfig)
+    } else "reports_storage_key"
+    val storageSecret = if (storageSecretConfig.nonEmpty) {
+      AppConf.getConfig(storageSecretConfig)
+    } else "reports_storage_secret"
     val store = modelParams.getOrElse("store", "local").asInstanceOf[String]
     StorageConfig(store, container, key, Option(storageKey), Option(storageSecret));
   }

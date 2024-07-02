@@ -4,12 +4,12 @@ spark_output_temp_dir: /mount/data/analytics/tmp/
 
 bucket: "telemetry-data-store"
 secor_bucket: "telemetry-data-store"
-dp_object_store_type: "azure"
+dp_object_store_type: "{{ cloud_service_provider }}"
 dp_raw_telemetry_backup_location: "unique/raw/"
-dp_storage_key_config: "azure_storage_key"
-dp_storage_secret_config: "azure_storage_secret"
-dp_reports_storage_key_config: "reports_azure_storage_key"
-dp_reports_storage_secret_config: "reports_azure_storage_secret"
+dp_storage_key_config: "cloud_storage_key"
+dp_storage_secret_config: "cloud_storage_secret"
+dp_reports_storage_key_config: "reports_storage_key"
+dp_reports_storage_secret_config: "reports_storage_secret"
 
 kafka_broker_host: "{{groups['processing-cluster-kafka'][0]}}:9092"
 ingestion_kafka_broker_host: "{{groups['ingestion-cluster-kafka'][0]}}:9092"
@@ -27,8 +27,8 @@ channel: dev-test
 druid_broker_host: "{{groups['raw-broker'][0]}}"
 druid_router_host: "{{groups['raw-router'][0]}}"
 druid_rollup_broker_host: "{{groups['raw-broker'][0]}}"
-hierarchySearchServiceUrl: "{{ proto }}://{{ domain_name }}/action/content"
-hierarchySearchServicEndpoint: /v3/hierarchy/
+hierarchySearchServiceUrl: "http://{{ private_ingressgateway_ip }}/content"
+hierarchySearchServicEndpoint: /collection/v4/hierarchy/
 
 user_table_keyspace: "sunbird"
 course_keyspace: "sunbird_courses"
@@ -182,7 +182,8 @@ analytics:
   home: /mount/data/analytics
   soft_path: /mount/data/analytics
   paths: ['/mount/data/analytics', '/mount/data/analytics/logs', '/mount/data/analytics/logs/services', '/mount/data/analytics/logs/data-products', '/mount/data/analytics/logs/lern-data-products', '/mount/data/analytics/tmp', '/mount/data/analytics/scripts', '/mount/data/analytics/models' ]
-  scripts: ['lern-model-config', 'lern-replay-job', 'replay-updater', 'replay-utils', 'lern-run-job', 'submit-job', 'start-jobmanager', 'submit-script']
+  lernScripts: ['lern-model-config', 'lern-replay-job', 'replay-updater', 'replay-utils', 'lern-run-job', 'submit-job', 'start-jobmanager', 'submit-script']
+  dockScripts: ['dock-model-config','dock-run-job']
 
 # artifact versions
 analytics_core_artifact_ver: "2.0"

@@ -1,21 +1,19 @@
 package org.sunbird.lms.audit
 
 import org.apache.spark.SparkContext
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.SparkSession
 import org.ekstep.analytics.framework.util.{HadoopFileUtil, JSONUtils}
 import org.ekstep.analytics.framework.{FrameworkContext, JobConfig}
 import org.scalamock.scalatest.MockFactory
-import org.sunbird.lms.job.report.BaseReportSpec
 import org.sunbird.core.util.EmbeddedCassandra
-
-import scala.collection.immutable.List
+import org.sunbird.lms.job.report.BaseReportSpec
 
 class TestAssessmentScoreCorrectionJob extends BaseReportSpec with MockFactory {
   implicit var spark: SparkSession = _
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    spark = getSparkSession();
+    spark = getSparkSession()
   }
 
   override def beforeEach(): Unit = {

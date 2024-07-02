@@ -35,15 +35,15 @@ object StateAdminGeoReportJob extends IJob with StateAdminReportHelper {
   }
 
   private def execute(config: JobConfig)(implicit sparkSession: SparkSession, fc: FrameworkContext) = {
-      val blockData = generateGeoReport()
+      val blockData = generateGeoReport(config)
       JobLogger.end("StateAdminGeoReportJob completed successfully!", "SUCCESS", Option(Map("config" -> config, "model" -> name)))
   }
 
-  def generateGeoReport() (implicit sparkSession: SparkSession, fc: FrameworkContext): DataFrame = {
+  def generateGeoReport(config: JobConfig)(implicit sparkSession: SparkSession, fc: FrameworkContext): DataFrame = {
     
     val container = AppConf.getConfig("cloud.container.reports")
     val objectKey = AppConf.getConfig("admin.metrics.cloud.objectKey")
-    val storageConfig = getStorageConfig(container, objectKey)
+    val storageConfig = getStorageConfig(container, objectKey, config)
     
     val organisationDF: DataFrame = loadOrganisationSlugDF()
     val subOrgDF: DataFrame = generateSubOrgData(organisationDF)

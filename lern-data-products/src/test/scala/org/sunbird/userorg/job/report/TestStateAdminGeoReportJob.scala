@@ -31,9 +31,14 @@ class TestStateAdminGeoReportJob extends SparkSpec(null) with MockFactory {
   }
   // TODO: Fix the testcase
   ignore should "generate reports" in {
+  //"StateAdminGeoReport" should "generate reports" in {
     implicit val fc = new FrameworkContext()
     val tempDir = AppConf.getConfig("admin.metrics.temp.dir")
-    val reportDF = StateAdminGeoReportJob.generateGeoReport()(spark, fc)
+    val modelParams = Map[String, AnyRef]("adhoc_scripts_virtualenv_dir" -> "/mount/venv",
+      "adhoc_scripts_output_dir" -> "/mount/portal_data")
+    val jobConfig = JobConfig(Fetcher("local", None, None), None, None, "StateAdminJob", Some(modelParams), None, Some(4), Some("TestExecuteDispatchder"))
+    val strConfig = JSONUtils.serialize(jobConfig)
+    val reportDF = StateAdminGeoReportJob.generateGeoReport(jobConfig)(spark, fc)
     assert(reportDF.count() === 12)
     //for geo report we expect these columns
     assert(reportDF.columns.contains("index") === true)
@@ -47,8 +52,8 @@ class TestStateAdminGeoReportJob extends SparkSpec(null) with MockFactory {
     assert(reportDF.columns.contains("externalid") === true)
     val apslug = reportDF.where(col("slug") === "ApSlug")
     val school_name = apslug.select("School name").collect().map(_ (0)).toList
-    assert(school_name(0) === "MPPS SIMHACHALNAGAR")
-    assert(school_name(1) === "Another school")
+    assert(school_name(0) === "Another school")
+    assert(school_name(1) === "MPPS SIMHACHALNAGAR")
     assert(reportDF.select("District id").distinct().count == 5)
     //checking reports were created under slug folder
     val geoDetail = new File("src/test/resources/admin-user-reports/geo-detail/ApSlug.csv")
@@ -59,7 +64,8 @@ class TestStateAdminGeoReportJob extends SparkSpec(null) with MockFactory {
     assert(geoSummaryDistrict.exists() === true)
   }
   // TODO: Fix the testcase
-  ignore should "execute main method" in {
+  //"StateAdminGeoReport" should "execute main method" in {
+    ignore should "execute main method" in {
     implicit val fc = new FrameworkContext()
     val modelParams = Map[String, AnyRef]("adhoc_scripts_virtualenv_dir" -> "/mount/venv",
       "adhoc_scripts_output_dir" -> "/mount/portal_data")
