@@ -15,7 +15,6 @@ report_azure_storage_secret: "{{cloud_private_storage_secret}}"
 
 sunbird_api_auth_token: "{{ core_vault_sunbird_api_auth_token }}"
 metadata2_redis_host: "{{ groups['redis'][0] }}"
-searchServiceAuthorizationToken: "{{ sunbird_api_auth_token }}"
 
 # Learning Service organization and location search endpoints
 channelSearchServiceEndpoint: "{{ proto}}://{{domain_name}}/api/org/v1/search"
@@ -62,14 +61,11 @@ postgres_address_space: 0.0.0.0/0 # Postgres trust address space
 lp_composite_search: "http://{{ groups['composite-search-cluster'][0] }}:9200" # Composite Cluster ip of LP
 lp_composite_search_host: "{{ groups['composite-search-cluster'][0] }}"
 lp_search: "http://{{private_ingressgateway_ip}}/search"
-lp_url: http://{{ groups['learning'][0] }}:8080/learning-service
 service:
   search:
     url: http://{{private_ingressgateway_ip}}/search
     path: /v3/search
 
-cassandra_hierarchy_store_prefix: "{{env}}_"
-data_exhaust_token: "{{dp_vault_data_exhaust_token}}"
 default_channel: "{{default_org_hash_id}}"
 
 # sunbird learner service
@@ -78,15 +74,10 @@ single_node_es_host: "{{ groups['core-es'][0] }}"
 
 #Druid Proxy APi service
 sunbird_druid_broker_host: "http://{{ groups['raw-broker'][0] }}"
-sunbird_learner_service_url: "http://{{private_ingressgateway_ip}}/learner"
-core_sunbird_learner_service_url: "http://{{core_private_ingressgateway_ip}}/learner"
+sunbird_learner_service_url: "http://{{private_ingressgateway_ip}}/userorg"
+core_sunbird_learner_service_url: "http://{{core_private_ingressgateway_ip}}/userorg"
 
-location_search_url: "{{ domain_name }}/api/data/"
-location_search_token: "Bearer {{ sunbird_api_auth_token }}"
-
-druid_report_url_endpoint : "{{ proto}}://{{domain_name}}/api/data/v1/report/jobs"
 druid_report_url : "{{ proto}}://{{domain_name}}/api/data/v1/"
-druid_report_token : "Bearer {{ sunbird_api_auth_token }}"
 
 #redis multiprocess config
 user_port: 6379
@@ -113,3 +104,20 @@ dp_storage_endpoint_config: "{{s3_storage_endpoint}}"
 
 core_cassandra_read_consistency: "{{lp_cassandra_read_consistency | default('LOCAL_QUORUM')}}"
 core_cassandra_write_consistency: "{{lp_cassandra_write_consistency | default('LOCAL_QUORUM')}}"
+
+domain_url: "{{proto}}://{{domain_name}}"
+framework_read_endpoint: "/api/framework/v1/read/"
+
+redis:
+  user:
+    index: "12"
+    input_index: "4"
+    backup_dir: "/mount/data/analytics/content-snapshot/anonymous-user-backup"
+  max_pipeline_size: "100000"
+  scan_count: "100000"
+
+cassandra:
+  read_timeout: "500000"
+  retry_count: "100"
+
+data_exhaust_token: ""

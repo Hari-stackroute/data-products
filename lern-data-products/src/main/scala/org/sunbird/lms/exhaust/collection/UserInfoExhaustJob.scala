@@ -7,6 +7,13 @@ import org.sunbird.core.exhaust.JobRequest
 
 object UserInfoExhaustJob extends BaseCollectionExhaustJob with Serializable {
 
+  /*
+  * * Available columns for the report
+  *
+  * "courseid", "collectionName", "batchid", "batchName", "userid", "username", "state", "district", "orgname", "email", "phone",
+    "consentflag", "consentprovideddate", "block", "cluster", "usertype", "usersubtype", "schooludisecode", "schoolname"
+  * */
+
   override def getClassName = "org.sunbird.lms.exhaust.collection.UserInfoExhaustJob"
 
   override def jobName() = "UserInfoExhaustJob";
@@ -19,7 +26,7 @@ object UserInfoExhaustJob extends BaseCollectionExhaustJob with Serializable {
   private val encryptedFields = Array("email", "phone", "username");
 
   override def getUserCacheColumns(): Seq[String] = {
-    Seq("userid", "username", "state", "district", "rootorgid", "orgname", "email", "phone", "block", "cluster", "usertype", "usersubtype", "schooludisecode", "schoolname")
+    Seq("userid", "username", "state", "district", "rootorgid", "orgname", "email", "phone", "block", "cluster", "usertype", "usersubtype", "schooludisecode", "schoolname", "status")
   }
 
   override def validateRequest(request: JobRequest): Boolean = {
@@ -35,19 +42,13 @@ object UserInfoExhaustJob extends BaseCollectionExhaustJob with Serializable {
 
   private val consentFields = List("email", "phone")
   private val orgDerivedFields = List("username")
-  private val columnsOrder = List("Collection Id", "Collection Name", "Batch Id", "Batch Name", "User UUID", "User Name", "User Type", "User Sub Type", "State", "District", "Block", "Cluster", "School Id", "School Name", "Org Name",
-    "Email ID", "Mobile Number", "Consent Provided", "Consent Provided Date");
-  val columnMapping = Map("courseid" -> "Collection Id", "collectionName" -> "Collection Name", "batchid" -> "Batch Id", "batchName" -> "Batch Name", "userid" -> "User UUID",
-    "username" -> "User Name", "usertype" -> "User Type", "usersubtype" -> "User Sub Type", "state" -> "State", "district" -> "District", "block" -> "Block", "cluster" -> "Cluster", "orgname" -> "Org Name",
-    "email" -> "Email ID", "phone" -> "Mobile Number", "consentflag" -> "Consent Provided", "consentprovideddate" -> "Consent Provided Date", "schooludisecode" -> "School Id", "schoolname" -> "School Name")
 
   override def processBatch(userEnrolmentDF: DataFrame, collectionBatch: CollectionBatch)(implicit spark: SparkSession, fc: FrameworkContext, config: JobConfig): DataFrame = {
-    val filterColumns : List[String] = config.modelParams.get.getOrElse("csvColumns", List[String]()).asInstanceOf[List[String]]
     collectionBatch.userConsent.getOrElse("No").toLowerCase() match {
       case "yes" =>
         val unmaskedDF = decryptUserInfo(applyConsentRules(collectionBatch, userEnrolmentDF))
-        val reportDF = unmaskedDF.select(filterColumns.head, filterColumns.tail: _*);
-        organizeDF(reportDF, columnMapping, columnsOrder)
+        val reportDF = unmaskedDF.select(reportColumnList.head, reportColumnList.tail: _*);
+        organizeDF(reportDF, reportColumnMapping, reportColumnMapping.values.toList)
 
       case _ =>
         throw new Exception("Invalid request. User info exhaust is not applicable for collections which don't request for user consent to share data")

@@ -117,11 +117,6 @@ update_user_redis_cache:
     hour: 3
     minute: 00
 
-index_content_model_druid:
-  index_content:
-    hour: 1
-    minute: 00
-
 run_etb_metrics_weekly_job:
   etb-metrics-weekly:
     hour: 23
@@ -177,7 +172,6 @@ service:
     url: http://{{private_ingressgateway_ip}}/search
     path: /v3/search
 
-es_search_index: "compositesearch"
 analytics:
   home: /mount/data/analytics
   soft_path: /mount/data/analytics
@@ -227,10 +221,6 @@ spark_cassandra_query_timeout_millis: 180000
 spark_cassandra_query_max_rows_fetch_count: 1000
 spark_sql_shuffle_partitions: 200
 
-druid_report_postgres_db_name: druid
-druid_report_postgres_db_username: druid
-
-
 #Override this variable in production and point to druid rollup ingestion cluster 
 # Example: "http://$rollup_cluster_ip:8090"
 druid_rollup_cluster_ingestion_task_url: "http://{{groups['raw-overlord'][0]}}:8081"
@@ -243,35 +233,6 @@ exhaust_parallel_batch_load_limit: 10
 exhaust_user_parallelism: 200
 
 data_exhaust_batch_limit_per_request: 20
-
-# Start Of UCI Related Variables
-uci_postgres_host: "dev-pg11.postgres.database.azure.com"
-uci_encryption_key_base64: ""
-uci_bot_postgres_database: uci-botdb
-uci_fusionauth_postgres_database: uci-fusionauth
-uci_postgres_user: "{{postgres.db_username}}"
-uci_postgres_password: "{{postgres.db_password}}"
-
-uci_postgres:
-  conversation_db_name: "{{ uci_bot_postgres_database }}"
-  conversation_db_host: "{{ uci_postgres_host }}"
-  conversation_db_port: "5432"
-  conversation_db_user: "{{ uci_postgres_user }}"
-  conversation_db_psss: "{{ uci_postgres_password }}"
-  conversation_table_name: "bot"
-  fushionauth_db_name: "{{ uci_fusionauth_postgres_database }}"
-  fushionauth_db_host: "{{ uci_postgres_host }}"
-  fushionauth_db_port: "5432"
-  fushionauth_db_user: "{{ uci_postgres_user }}"
-  fushionauth_db_psss: "{{ uci_postgres_password }}"
-  user_table_name: "users"
-  user_registration_table_name: "user_registrations"
-  user_identities_table_name: "identities"
-
-uci_encryption_secret_key: "{{uci_encryption_key_base64}}"
-uci_pdata_id: "{{uci_env}}.uci.{{sunbird_instance}}"
-
-# End Of UCI Related Variables 
 
 # Exhaust sanity check vars
 cassandra_migrator_job_name: "Cassandra Migrator"

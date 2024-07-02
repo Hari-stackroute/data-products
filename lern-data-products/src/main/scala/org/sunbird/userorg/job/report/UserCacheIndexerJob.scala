@@ -6,8 +6,10 @@ import org.apache.spark.sql.functions.{col, collect_set, concat_ws, explode_oute
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode, SparkSession}
 import org.apache.spark.storage.StorageLevel
-import org.ekstep.analytics.framework.util.{JSONUtils, JobLogger}
+import org.ekstep.analytics.framework.util.{JSONUtils, JobLogger, RestUtil}
 import org.ekstep.analytics.framework.{FrameworkContext, IJob, JobConfig}
+import org.ekstep.analytics.framework.Level.INFO
+import org.sunbird.lms.exhaust.collection.CollectionDetails
 import redis.clients.jedis.Jedis
 
 import scala.collection.mutable
@@ -27,19 +29,21 @@ object UserCacheIndexerJob extends IJob with Serializable {
     JobLogger.init(name())
     JobLogger.start("Started executing", Option(Map("config" -> config, "model" -> name)))
     val jobConfig = JSONUtils.deserialize[JobConfig](jobDataConfig)
-    val specificUserId: String = null
-    val fromSpecificDate: String = jobConfig.modelParams.get.getOrElse("fromSpecificDate", "").toString
+    val specificUserId: String = if(jobConfig.modelParams.get.getOrElse("specificUserId", "null").toString != "null") jobConfig.modelParams.get("specificUserId").toString else null
+    val fromSpecificDate: String = if(jobConfig.modelParams.get.getOrElse("fromSpecificDate", "null").toString != "null") jobConfig.modelParams.get("fromSpecificDate").toString else null
     val populateAnonymousData: String = jobConfig.modelParams.get.getOrElse("populateAnonymousData", "false").toString // populate anonymous data
     val refreshUserData: String = jobConfig.modelParams.get.getOrElse("refreshUserData", "false").toString // refresh existing user data
+    JobLogger.log(s"params for the job: specificUserId: ${specificUserId} ::: fromSpecificDate: ${fromSpecificDate} ::: populateAnonymousData: ${populateAnonymousData} ::: refreshUserData: ${refreshUserData}", None, INFO)
     val sunbirdKeyspace = "sunbird"
     val complexFieldTypes = Array("array", "map")
+    val fwReadApiUrl = config.getString("taxonomy.basePath") + config.getString("framework_read_api")
     val redisIndex = if (!populateAnonymousData.equalsIgnoreCase("true")) config.getString("redis.user.database.index") else config.getString("redis.user.input.index")
     val spark: SparkSession =
       SparkSession
         .builder()
         .appName("AppName")
         .config("spark.master", "local[*]")
-        .config("spark.cassandra.connection.host", config.getString("spark.cassandra.connection.host"))
+        .config("spark.cassandra.connection.host", config.getString("sunbird.user.cluster.host"))
         .config("spark.redis.host", jobConfig.modelParams.get.getOrElse("sparkRedisConnectionHost", "").toString)
         .config("spark.redis.port", jobConfig.modelParams.get.getOrElse("sparkUserDbRedisPort", "").toString)
         .config("spark.redis.db", redisIndex)
@@ -81,17 +85,21 @@ object UserCacheIndexerJob extends IJob with Serializable {
       val custRootOrgId = getCustodianOrgId()
       Console.println("#### custRootOrgId ####", custRootOrgId)
 
-      val userDF = filterUserData(spark.read.format("org.apache.spark.sql.cassandra").option("table", "user").option("keyspace", sunbirdKeyspace).load()
-        .select(col("firstname"), col("lastname"), col("email"), col("phone"),
-          col("rootorgid"), col("framework"), col("userid"))
+      var userDF = filterUserData(spark.read.format("org.apache.spark.sql.cassandra").option("table", "user").option("keyspace", sunbirdKeyspace).load()
+        .select(
+          col("firstname"), col("lastname"), col("email"), col("phone"),
+          col("rootorgid"), col("framework"), col("userid"), col("status")
+        )
         .filter(col("userid").isNotNull))
-        .withColumn("medium", col("framework.medium")) // Flattening the BGMS
-        .withColumn("subject", col("framework.subject"))
-        .withColumn("board", explode_outer(col("framework.board")))
-        .withColumn("grade", col("framework.gradeLevel"))
-        .withColumn("framework_id", explode_outer(col("framework.id")))
-        .drop("framework")
-        .withColumnRenamed("framework_id", "framework")
+      userDF = userDF.withColumn("framework_id", element_at(col("framework.id"), 1))
+
+      val fwCategories = getFrameworkCategories(userDF)
+
+      fwCategories.foreach(category => {
+        userDF = userDF.withColumn(s"framework_${category}" , col(s"framework.${category}"))
+      })
+
+      userDF = userDF.drop("framework")
         .withColumn("usersignintype", when(col("rootorgid") === lit(custRootOrgId), "Self-Signed-In").otherwise("Validated"))
         .persist(StorageLevel.MEMORY_ONLY)
 
@@ -138,6 +146,31 @@ object UserCacheIndexerJob extends IJob with Serializable {
       val systemSettingDF = spark.read.format("org.apache.spark.sql.cassandra").option("table", "system_settings").option("keyspace", sunbirdKeyspace).load()
       val df = systemSettingDF.where(col("id") === "custodianOrgId" && col("field") === "custodianOrgId").select(col("value"))
       df.select("value").first().getString(0)
+    }
+
+    def getFrameworkCategories(userDf: DataFrame): Set[String] = {
+      var frameworkCategories = Set[String]()
+      userDf.select("framework_id").na.drop().distinct().rdd.collect().map(row => {
+        val fwID = row.getString(0)
+        val apiURL = String.format("%s%s", fwReadApiUrl, fwID)
+        val fwReadRes = RestUtil.get[Map[String, AnyRef]](apiURL)
+
+        val categories = if(isValidFrameworkResponse(fwReadRes)){
+          var categoriesList = List[String]()
+          val categoryRes = fwReadRes.get("result").get.asInstanceOf[Map[String, AnyRef]].get("framework").get.asInstanceOf[Map[String, AnyRef]].get("categories").get.asInstanceOf[List[Map[String, AnyRef]]]
+          categoryRes.foreach(category => {
+            val categoryCode = category.get("code").get.asInstanceOf[String]
+            categoriesList = categoriesList :+ categoryCode
+          })
+          categoriesList
+        } else List()
+        frameworkCategories = frameworkCategories ++ categories
+      })
+      frameworkCategories
+    }
+
+    def isValidFrameworkResponse(fwReadRes: Map[String, AnyRef]): Boolean = {
+      if (fwReadRes.get("responseCode").get.asInstanceOf[String].toUpperCase.equalsIgnoreCase("OK") && fwReadRes.get("result").get.asInstanceOf[Map[String, AnyRef]].nonEmpty && fwReadRes.get("result").get.asInstanceOf[Map[String, AnyRef]].contains("framework")) true else false
     }
 
     def denormUserData(): Unit = {
@@ -402,6 +435,8 @@ object UserCacheIndexerJob extends IJob with Serializable {
 
       anonymousDataDF
     }
+
+    JobLogger.end(s"${name()} completed execution", "SUCCESS", Option(Map()))
   }
 
   def time[R](block: => R): (Long, R) = {

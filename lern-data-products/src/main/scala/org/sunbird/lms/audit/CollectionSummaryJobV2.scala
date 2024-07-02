@@ -2,12 +2,13 @@ package org.sunbird.lms.audit
 
 import com.datastax.spark.connector.cql.CassandraConnectorConf
 import org.apache.spark.SparkContext
-import org.apache.spark.sql.functions._
 import org.apache.spark.sql.cassandra._
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Encoders, SparkSession}
 import org.ekstep.analytics.framework.Level.INFO
 import org.ekstep.analytics.framework.conf.AppConf
+import org.ekstep.analytics.framework.util.DatasetUtil.extensions
 import org.ekstep.analytics.framework.util.{CommonUtil, JSONUtils, JobLogger}
 import org.ekstep.analytics.framework.{FrameworkContext, IJob, JobConfig}
 import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
@@ -15,9 +16,6 @@ import org.joda.time.{DateTime, DateTimeZone}
 import org.sunbird.core.util.{CourseUtils, UserData}
 import org.sunbird.lms.exhaust.collection.UDFUtils
 import org.sunbird.lms.job.report.BaseReportsJob
-import org.ekstep.analytics.framework.util.DatasetUtil.extensions
-
-import scala.collection.immutable.List
 
 object CollectionSummaryJobV2 extends IJob with BaseReportsJob {
   val cassandraUrl = "org.apache.spark.sql.cassandra"

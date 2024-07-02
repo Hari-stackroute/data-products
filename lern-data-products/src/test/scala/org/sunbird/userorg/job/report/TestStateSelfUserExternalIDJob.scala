@@ -4,6 +4,7 @@ package org.sunbird.userorg.job.report
 import okhttp3.mockwebserver.{Dispatcher, MockResponse, MockWebServer, RecordedRequest}
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.ekstep.analytics.framework.FrameworkContext
 import org.ekstep.analytics.framework.util.JSONUtils.serialize
 import org.ekstep.analytics.framework.util.{HadoopFileUtil, JSONUtils}
 import org.ekstep.analytics.framework.{Fetcher, FrameworkContext, JobConfig, StorageConfig}
@@ -63,7 +64,7 @@ class TestStateSelfUserExternalIDJob extends BaseReportSpec with Matchers with M
     val reportDF = StateAdminReportJob.generateExternalIdReport()(spark, fc)
     assert(reportDF.count() === 2);
 
-    val user1 = reportDF.filter(col("Diksha UUID") === "56c2d9a3-fae9-4341-9862-4eeeead2e9a1").first
+    val user1 = reportDF.filter(col("Sunbird UUID") === "56c2d9a3-fae9-4341-9862-4eeeead2e9a1").first
 
     user1.getAs[String]("Profile Email") should be ("PEhQxQlaMdJEXOzShY0NAiKg4LqC2xUDE4InNodhG/fJMhq69iAPzseEdYAlMPWegxJaAnH+tJwc\\nZuqPxJCtJkiGfwlCUEj5B41z4/RjH/7XowwzRVZXH0jth3IW4Ik8TQtMGOn7lhkDdxs1iV8l8A==")
     user1.getAs[String]("User Type") should be ("administrator,teacher,other,parent")
@@ -82,7 +83,7 @@ class TestStateSelfUserExternalIDJob extends BaseReportSpec with Matchers with M
     user1.getAs[String]("Cluster") should be ("Chittooorblock1cluster1")
     user1.getAs[String]("Block") should be ("Chittooorblock1")
 
-    val user2 = reportDF.filter(col("Diksha UUID") === "8eaa1621-ac15-42a4-9e26-9c846963f331").first
+    val user2 = reportDF.filter(col("Sunbird UUID") === "8eaa1621-ac15-42a4-9e26-9c846963f331").first
 
     user2.getAs[String]("Profile Email") should be ("PEhQxQlaMdJEXOzShY0NAiKg4LqC2xUDE4InNodhG/fJMhq69iAPzseEdYAlMPWegxJaAnH+tJwc\\nZuqPxJCtJkiGfwlCUEj5B41z4/RjH/7XowwzRVZXH0jth3IW4Ik8TQtMGOn7lhkDdxs1iV8l8A==")
     user2.getAs[String]("User Type") should be ("teacher")
@@ -93,7 +94,7 @@ class TestStateSelfUserExternalIDJob extends BaseReportSpec with Matchers with M
     user2.getAs[String]("Org Phone") should be ("1wsQrmy8Q1T4gFa+MOJsirdQC2yhyJsm2Rgj229s2b5Hk/JLNNnHMz6ywhgzYpgcQ6QILjcTLl7z\\n7s4aRbsrWw==")
     user2.getAs[String]("School UDISE ID") should be ("orgext2")
     user2.getAs[String]("School Name") should be ("mgm21")
-    user2.getAs[String]("Diksha UUID") should be ("8eaa1621-ac15-42a4-9e26-9c846963f331")
+    user2.getAs[String]("Sunbird UUID") should be ("8eaa1621-ac15-42a4-9e26-9c846963f331")
     user2.getAs[String]("District") should be ("Gulbarga")
     user2.getAs[String]("Org Email ID") should be ("PEhQxQlaMdJEXOzShY0NAiKg4LqC2xUDE4InNodhG/fJMhq69iAPzseEdYAlMPWegxJaAnH+tJwc\\nZuqPxJCtJkiGfwlCUEj5B41z4/RjH/7XowwzRVZXH0jth3IW4Ik8TQtMGOn7lhkDdxs1iV8l8A==")
     user2.getAs[String]("Root Org of user") should be ("MPPS SIMHACHALNAGAR")
@@ -114,7 +115,6 @@ class TestStateSelfUserExternalIDJob extends BaseReportSpec with Matchers with M
       case ex: Exception => assert(ex.getMessage === "Self-Declared user level zip generation failed with exit code 127");
     }
   }
-
 
   "StateAdminReportJob" should "execute main method" in {
     implicit val fc = new FrameworkContext()

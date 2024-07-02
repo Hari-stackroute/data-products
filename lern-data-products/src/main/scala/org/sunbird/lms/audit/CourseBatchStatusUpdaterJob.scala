@@ -136,7 +136,7 @@ object CourseBatchStatusUpdaterJob extends IJob with BaseReportsJob {
            |  }
            |}
            |""".stripMargin
-      val response = RestUtil.patch[Map[String, AnyRef]](modelParams.getOrElse("kpLearningBasePath", "localhost:8080/learning-service") + s"""/system/v3/content/update/$courseId""", request, Some(Map("content-type" -> "application/json")))
+      val response = RestUtil.patch[Map[String, AnyRef]](modelParams.getOrElse("kpContentServiceBasePath", "http://content-service:9000") + s"""/content/v4/system/update/$courseId""", request, Some(Map("content-type" -> "application/json")))
       JobLogger.log("Updated content status", Option(response), INFO)
     })
   }

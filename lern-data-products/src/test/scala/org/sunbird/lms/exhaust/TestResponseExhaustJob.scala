@@ -1,21 +1,18 @@
 package org.sunbird.lms.exhaust
 
 import okhttp3.mockwebserver.{Dispatcher, MockResponse, MockWebServer, RecordedRequest}
-import org.apache.spark.sql.{Encoders, SparkSession}
+import org.apache.spark.sql.SparkSession
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.util.{HadoopFileUtil, JSONUtils}
-import org.ekstep.analytics.framework.{FrameworkContext, JobConfig}
 import org.joda.time.DateTimeZone
 import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
 import org.scalamock.scalatest.MockFactory
 import org.sunbird.core.exhaust.BaseReportsJob
-import org.sunbird.lms.job.report.BaseReportSpec
 import org.sunbird.core.util.{EmbeddedCassandra, EmbeddedPostgresql, RedisConnect}
 import org.sunbird.lms.exhaust.collection.ResponseExhaustJob
+import org.sunbird.lms.job.report.BaseReportSpec
 import redis.clients.jedis.Jedis
 import redis.embedded.RedisServer
-
-import scala.collection.JavaConverters._
 
 
 case class ResponseExhaustReport(`Collection Id`: String, `Collection Name`: String, `Batch Id`: String, `Batch Name`: String, `User UUID`: String,

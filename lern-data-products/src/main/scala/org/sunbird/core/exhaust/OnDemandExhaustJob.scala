@@ -8,7 +8,7 @@ import org.ekstep.analytics.framework.Level.{ERROR, INFO}
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.util.{CommonUtil, JobLogger}
 import org.ekstep.analytics.framework.{FrameworkContext, StorageConfig}
-import org.sunbird.core.util.DataSecurityUtil.{zipAndPasswordProtect}
+import org.sunbird.core.util.DataSecurityUtil.zipAndPasswordProtect
 
 import java.sql.{Connection, DriverManager, PreparedStatement, Timestamp}
 import java.util.Properties

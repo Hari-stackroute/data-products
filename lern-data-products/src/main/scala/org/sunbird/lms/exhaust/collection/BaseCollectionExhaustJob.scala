@@ -6,7 +6,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.cassandra._
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.ekstep.analytics.framework.Level.{ERROR, INFO}
 import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
 import org.ekstep.analytics.framework.driver.BatchJobDriver.getMetricJson
@@ -19,18 +19,18 @@ import org.joda.time.{DateTime, DateTimeZone}
 import org.sunbird.cloud.storage.conf.AppConf
 import org.sunbird.core.util.{DecryptUtil, RedisConnect}
 import org.sunbird.core.exhaust.{BaseReportsJob, JobRequest, OnDemandExhaustJob}
-import org.sunbird.core.util.DataSecurityUtil.{getOrgId, getPIIFieldDetails, getSecuredExhaustFile, getSecurityLevel}
+import org.sunbird.core.util.{DataSecurityUtil, DecryptUtil, RedisConnect}
 import org.sunbird.lms.exhaust.collection.ResponseExhaustJobV2.Question
 
 import java.security.MessageDigest
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ListBuffer
-
+import scala.languageFeature.dynamics
 
 case class UserData(userid: String, state: Option[String] = Option(""), district: Option[String] = Option(""), orgname: Option[String] = Option(""), firstname: Option[String] = Option(""), lastname: Option[String] = Option(""), email: Option[String] = Option(""),
-                    phone: Option[String] = Option(""), rootorgid: String, block: Option[String] = Option(""), schoolname: Option[String] = Option(""), schooludisecode: Option[String] = Option(""), board: Option[String] = Option(""), cluster: Option[String] = Option(""),
-                    usertype: Option[String] = Option(""), usersubtype: Option[String] = Option(""))
+                    phone: Option[String] = Option(""), rootorgid: String, block: Option[String] = Option(""), schoolname: Option[String] = Option(""), schooludisecode: Option[String] = Option(""), cluster: Option[String] = Option(""),
+                    usertype: Option[String] = Option(""), usersubtype: Option[String] = Option(""), status: Option[String] = Option(""))
 
 case class CollectionConfig(batchId: Option[String], searchFilter: Option[Map[String, AnyRef]], batchFilter: Option[List[String]])
 case class CollectionBatch(batchId: String, collectionId: String, batchName: String, custodianOrgId: String, requestedOrgId: String, collectionOrgId: String, collectionName: String, userConsent: Option[String] = Some("No"))
@@ -49,6 +49,8 @@ trait BaseCollectionExhaustJob extends BaseReportsJob with IJob with OnDemandExh
   private val userEnrolmentDBSettings = Map("table" -> "user_enrolments", "keyspace" -> AppConf.getConfig("sunbird.user.report.keyspace"), "cluster" -> "ReportCluster");
   val redisConnection =  new RedisConnect(AppConf.getConfig("sunbird.course.redis.host"), AppConf.getConfig("sunbird.course.redis.port").toInt)
   var jedis = redisConnection.getConnection(AppConf.getConfig("sunbird.course.redis.relationCache.id").toInt)
+  protected var reportColumnMapping: Map[String, String] = null
+  protected var reportColumnList : List[String] = null
 
   private val redisFormat = "org.apache.spark.sql.redis";
   val cassandraFormat = "org.apache.spark.sql.cassandra";
@@ -104,9 +106,17 @@ trait BaseCollectionExhaustJob extends BaseReportsJob with IJob with OnDemandExh
     val mode = modelParams.getOrElse("mode", "OnDemand").asInstanceOf[String];
 
     val custodianOrgId = getCustodianOrgId();
+    val userFrameworkFields = getFrameworkFields(config)
+    reportColumnList = config.modelParams.get.getOrElse("csvColumns", List[String]()).asInstanceOf[List[String]]
+    reportColumnMapping = config.modelParams.get.getOrElse("columnMapping", Map[String, String]()).asInstanceOf[Map[String, String]]
+
+    val frameworkSchema = generateDFSchema(userFrameworkFields)
 
     val res = CommonUtil.time({
-      val userDF = getUserCacheDF(getUserCacheColumns(), persist = true)
+      var userDF = getUserCacheDF(getUserCacheColumns() ++ userFrameworkFields, persist = true, frameworkSchema)
+      userFrameworkFields.foreach(colName => {
+        userDF = userDF.withColumn(colName, UDFUtils.extractFromArrayString(col(colName)))
+      })
       (userDF.count(), userDF)
     })
     JobLogger.log("Time to fetch enrolment details", Some(Map("timeTaken" -> res._1, "count" -> res._2._1)), INFO)
@@ -150,8 +160,8 @@ trait BaseCollectionExhaustJob extends BaseReportsJob with IJob with OnDemandExh
     val result = for (request <- filteredRequests) yield {
       JobLogger.log(s"executeOnDemand for channel= "+ request.requested_channel, None, INFO)
       val orgId = request.requested_channel//getOrgId("", request.requested_channel)
-      val level = getSecurityLevel(jobId(), orgId)
-      val piiFields = getPIIFieldDetails(jobId(), orgId)
+      val level = DataSecurityUtil.getSecurityLevel(jobId(), orgId)
+      val piiFields = DataSecurityUtil.getPIIFieldDetails(jobId(), orgId)
       val csvColumns = modelParams.getOrElse("csvColumns", List[String]()).asInstanceOf[List[String]]
       JobLogger.log(s"executeOnDemand for url = $orgId and level = $level and channel= $request.requested_channel", None, INFO)
       val reqOrgAndLevel = (request.request_id, orgId, level)
@@ -368,7 +378,7 @@ trait BaseCollectionExhaustJob extends BaseReportsJob with IJob with OnDemandExh
             val filePath = getFilePath(batch.batchId, requestId.getOrElse(""))
             val files = reportDF.saveToBlobStore(storageConfig, fileFormat, filePath, Option(Map("header" -> "true")), None)
             JobLogger.log(s"processBatches filePath: $filePath", Some("filePath" -> filePath), INFO)
-            files.foreach(file => getSecuredExhaustFile(level, orgId, requestChannel.get, file, encryptionKey.getOrElse(""), storageConfig, jobRequest))
+            files.foreach(file => DataSecurityUtil.getSecuredExhaustFile(level, orgId, requestChannel.get, file, encryptionKey.getOrElse(""), storageConfig, jobRequest))
             //getSecuredExhaustFile(level, orgId, requestChannel.get, url, encryptionKey.getOrElse(""), storageConfig)
 
             newFileSize = fc.getHadoopFileUtil().size(files.head, spark.sparkContext.hadoopConfiguration)
@@ -437,6 +447,10 @@ trait BaseCollectionExhaustJob extends BaseReportsJob with IJob with OnDemandExh
     Seq("userid", "state", "district", "rootorgid")
   }
 
+  def getFrameworkFields(config: JobConfig): Seq[String] = {
+    config.modelParams.get.getOrElse("userCacheCols", Seq[String]()).asInstanceOf[Seq[String]]
+  }
+
   def getEnrolmentColumns() : Seq[String] = {
     Seq("batchid", "userid", "courseid")
   }
@@ -501,11 +515,26 @@ trait BaseCollectionExhaustJob extends BaseReportsJob with IJob with OnDemandExh
     if (persist) df.persist() else df
   }
 
-  def getUserCacheDF(cols: Seq[String], persist: Boolean)(implicit spark: SparkSession): DataFrame = {
+  def getUserCacheDF(cols: Seq[String], persist: Boolean, additionalFieldSchema: StructType)(implicit spark: SparkSession): DataFrame = {
     val schema = Encoders.product[UserData].schema
-    val df = loadData(userCacheDBSettings, redisFormat, schema).withColumn("username", concat_ws(" ", col("firstname"), col("lastname"))).select(cols.head, cols.tail: _*)
+    val df = loadData(userCacheDBSettings, redisFormat, StructType(schema.fields ++ additionalFieldSchema.fields))
+      .withColumn("username", concat_ws(" ", col("firstname"), col("lastname")))
+      .withColumn("status",
+        when(col("status") === 2, "Deleted user")
+          .when(col("status") === 1, "Active user")
+          .when(col("status") === 0, "Inactive user")
+          .otherwise("Invalid user")
+      ).select(cols.head, cols.tail: _*)
       .repartition(AppConf.getConfig("exhaust.user.parallelism").toInt,col("userid"))
     if (persist) df.persist() else df
+  }
+
+  def generateDFSchema(cols: Seq[String]): StructType= {
+    var structFieldList: List[StructField] = List[StructField]()
+    cols.foreach(col => {
+      structFieldList = structFieldList :+ StructField(col, StringType, true)
+    })
+    StructType(structFieldList)
   }
 
   def filterUsers(collectionBatch: CollectionBatch, reportDF: DataFrame)(implicit spark: SparkSession): DataFrame = {
@@ -593,13 +622,13 @@ object UDFUtils extends Serializable {
 
   val toJSON = udf[String, AnyRef](toJSONFun)
 
-  def extractFromArrayStringFun(board: String): String = {
+  def extractFromArrayStringFun(colValue: String): String = {
     try {
-      val str = JSONUtils.deserialize[AnyRef](board);
+      val str = JSONUtils.deserialize[AnyRef](colValue);
       str.asInstanceOf[List[String]].head
     } catch {
       case ex: Exception =>
-        board
+        colValue
     }
   }
 
